@@ -120,8 +120,6 @@ function matching_pursuit_H_fit(sampledF, x, y, zz)
     end
     M = hcat(M...)
     param = M\sampledF
-    clf()
-    plot(M*param.-sampledF)
 
     nparam = size(M)[2]
     param = M[:, Use] \ sampledF
@@ -130,8 +128,6 @@ function matching_pursuit_H_fit(sampledF, x, y, zz)
     @show powers[Use]
     @show maximum(abs.(residual))
 
-    clf()
-    plot(residual)
     for iter=1:15
         dd = M'*residual
         # @show abs.(dd)/maximum(abs.(dd))
@@ -141,7 +137,6 @@ function matching_pursuit_H_fit(sampledF, x, y, zz)
         residual = sampledF - M[:, Use]*param
         # residual .-= M[:, winner]*dd[winner]
         @show sum(Use), winner, powers[winner], maximum(abs.(residual))
-        plot(residual)
         maximum(abs.(residual)) < goal && break
     end
     param = M[:, Use] \ sampledF
