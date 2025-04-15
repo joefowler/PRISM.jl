@@ -2,7 +2,7 @@ using PRISM
 using LinearAlgebra
 
 @testset "volume_object" begin
-    nx, ny, nz = 3, 5, 4
+    nx, ny, nz = 4, 5, 4
     edges = [0:nx, 0:ny, 0:nz]
     v = Volume(edges)
     
@@ -29,4 +29,11 @@ using LinearAlgebra
         p4 = [x, y, nz]
         @test PRISM.path_integrated_density(v, p3, p4) ≈ sum(v.densities[1+Int(floor(x)), y, :]) * norm(p4-p3)/nz
     end
+
+    pA = [2, 3, 0]
+    pB = [3, 4, nz]
+    @test PRISM.path_integrated_density(v, pA, pB) ≈ sum(v.densities[3, 4, :]) * norm(pB-pA)/nz
+    pC = [4, 5, nz]
+    dsum = sum(v.densities[3, 4, 1:div(nz, 2)]) + sum(v.densities[4, 5, (div(nz, 2)+1):end])
+    @test PRISM.path_integrated_density(v, pA, pC) ≈ dsum * norm(pC-pA)/nz
 end
