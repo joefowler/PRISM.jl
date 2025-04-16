@@ -54,14 +54,14 @@ end
 
 corners(v::Volume) = [[minimum(x), maximum(x)] for x in v.edges]
 
-function voxelScale(v::Volume, pa::PointArray)
+function real2voxel(v::Volume, pa::PointArray)
     ex, ey, ez = v.edges
     x = (pa.x .- minimum(ex)) / step(ex)
     y = (pa.y .- minimum(ey)) / step(ey)
     z = (pa.z .- minimum(ez)) / step(ez)
     PointArray(x, y, z, pa.n)
 end
-voxelScale(v::Volume, p::AbstractArray) = [(x-minimum(e))/step(e) for (x,e) in zip(p, v.edges)]
+real2voxel(v::Volume, p::AbstractArray) = [(x-minimum(e))/step(e) for (x,e) in zip(p, v.edges)]
 
 function enter_exit_points(v::Volume, p1::AbstractArray, p2::AbstractArray)
     @assert length(p1) == 3
@@ -95,8 +95,8 @@ function path_integrated_density(v::Volume, p1::AbstractArray, p2::AbstractArray
     # Start with all crossings of z-plane boundaries
     α = collect(LinRange(0, 1, 1+v.voxelsPerEdge[3]))
 
-    vfront = voxelScale(v, pfront)
-    vback = voxelScale(v, pback)
+    vfront = real2voxel(v, pfront)
+    vback = real2voxel(v, pback)
     dv = vback - vfront
 
     for axis in (1,2)
@@ -171,8 +171,8 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     integral = zeros(Float64, p1.n)
     total_distance = norm(pback-pfront)
 
-    vfront = voxelScale(v, pfront)
-    vback = voxelScale(v, pback)
+    vfront = real2voxel(v, pfront)
+    vback = real2voxel(v, pback)
     dv = vback - vfront
     intfloor(x::Real) = Int(floor(x))
 
@@ -189,10 +189,9 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
         ifx = intfloor(fx)
         ibx = intfloor(bx)
         if ifx != ibx
-            dvox = bx-fx
             sign = ifx < ibx ? +1 : -1
             crossings = ifx+sign:sign:ibx
-            αx = (crossings .- fx) / dvox
+            αx = (crossings .- fx) / (bx-fx)
         end
 
         # Find all crossings of y-plane boundaries
@@ -201,10 +200,9 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
         ify = intfloor(fy)
         iby = intfloor(by)
         if ify != iby
-            dvox = by-fy
             sign = ify < iby ? +1 : -1
             crossings = ify+sign:sign:iby
-            αy = (crossings .- fy) / dvox
+            αy = (crossings .- fy) / (by-fy)
         end
         
         # Merge these together, in least-greatest order
@@ -217,27 +215,12 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
         prevα = α[1]
         for nextα in α[2:end]
             thisdist = TD*abs(nextα-prevα)
-            thisdist ≤ 0 && continue
             voxelID = [1+intfloor(x) for x in xyz_front + xyz_displ*prevα]
-            any(voxelID .< 1) && continue
-            any(voxelID .> v.voxelsPerEdge) && continue
-            integral[i] += thisdist * v.densities[voxelID...]
+            if all(voxelID .≥ 1) && all(voxelID .≤ v.voxelsPerEdge)
+                integral[i] += thisdist * v.densities[voxelID...]
+            end
             prevα = nextα
         end
-
-        # Try sampling
-        # stepsize = 0.02  # i.e., 20 nm
-        # d = .5*stepsize:stepsize:total_distance[i]
-        # ix = 1 .+int.(vfront.x[i] .+ dv.x[i]*d)
-        # iy = 1 .+int.(vfront.y[i] .+ dv.y[i]*d)
-        # iz = 1 .+int.(vfront.z[i] .+ dv.z[i]*d)
-        # dsum = 0.0
-        # for (a,b,c) in zip(ix, iy, iz)
-        #     if a ≥ 1 && b ≥ 1 && c ≥ 1 && a ≤ v.voxelsPerEdge[1] && b ≤ v.voxelsPerEdge[2] && c ≤ v.voxelsPerEdge[3]
-        #         dsum += v.densities[a, b, c]
-        #     end
-        # end
-        # integral[i] = stepsize * dsum
     end
     integral
 end
