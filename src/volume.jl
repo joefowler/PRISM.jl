@@ -1,5 +1,24 @@
 using LinearAlgebra
 
+struct PointArray
+    x::Vector{Float64}
+    y::Vector{Float64}
+    z::Vector{Float64}
+    n::Int
+end
+
+function PointArray(x::AbstractVector, y::AbstractVector, z::AbstractVector)
+    n = length(x)
+    @assert n == length(y)
+    @assert n == length(z)
+    PointArray(x, y, z, n)
+end
+
+Base.:+(a::PointArray, b::PointArray) = PointArray(a.x.+b.x, a.y.+b.y, a.z.+b.z, a.n)
+Base.:-(a::PointArray, b::PointArray) = PointArray(a.x.-b.x, a.y.-b.y, a.z.-b.z, a.n)
+Base.:*(k::Real, p::PointArray) = PointArray(k*p.x, k*p.y, k*p.z, p.n)
+Base.:*(p::PointArray, k::Real) = Base.:*(k, p)
+
 struct Volume
     edges::Vector
     densities::Array{Float64}
@@ -35,6 +54,14 @@ function enter_exit_points(v::Volume, p1::AbstractArray, p2::AbstractArray)
     a1 = (zmin - p1[3]) / dx[3]
     a2 = (zmax - p1[3]) / dx[3]
     p1 + a1*dx, p1 + a2*dx
+end
+
+function enter_exit_points(v::Volume, pa1::PointArray, pa2::PointArray)
+    Δp = pa2 - pa1
+    zmin, zmax = minimum(v.edges[3]), maximum(v.edges[3])
+    a1 = (zmin .- pa1.z) ./ Δp.z
+    a2 = (zmax .- pa1.z) ./ Δp.z
+    pa1 + a1*Δp, p1 + a2*Δp
 end
 
 function path_integrated_density(v::Volume, p1::AbstractArray, p2::AbstractArray)

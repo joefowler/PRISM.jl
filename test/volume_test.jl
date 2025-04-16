@@ -1,6 +1,30 @@
 using PRISM
 using LinearAlgebra
 
+@testset "PointArray" begin
+    @test_throws AssertionError PointArray([1,2,3], [1,2,3,4], [1,2])
+    x = 1:4
+    y = x.+2
+    z = x.+1
+    pa = PointArray(x,y,z)
+    @test all(pa.x .== x)
+    @test all(pa.y .== y)
+    @test all(pa.z .== z)
+    d = pa - pa
+    @test all(d.x .== 0)
+    @test all(d.y .== 0)
+    @test all(d.z .== 0)
+    s = pa + pa
+    @test all(s.x .== 2x)
+    @test all(s.y .== 2y)
+    @test all(s.z .== 2z)
+    for double in [2pa, pa*2]
+        @test all(double.x .== 2x)
+        @test all(double.y .== 2y)
+        @test all(double.z .== 2z)
+    end
+end
+
 @testset "volume_object" begin
     nx, ny, nz = 4, 5, 4
     edges = [0:nx, 0:ny, 0:nz]
