@@ -13,11 +13,19 @@ function PointArray(x::AbstractVector, y::AbstractVector, z::AbstractVector)
     @assert n == length(z)
     PointArray(x, y, z, n)
 end
+PointArray(x::Number, y::Number, z::Number) = PointArray([x], [y], [z])
+PointArray(a::AbstractMatrix) = PointArray(a[:,1], a[:,2], a[:,3])
+PointArray(v::AbstractVector) = PointArray(v...)
+matrix(p::PointArray) = hcat(p.x, p.y, p.z)
 
 Base.:+(a::PointArray, b::PointArray) = PointArray(a.x.+b.x, a.y.+b.y, a.z.+b.z, a.n)
 Base.:-(a::PointArray, b::PointArray) = PointArray(a.x.-b.x, a.y.-b.y, a.z.-b.z, a.n)
 Base.:*(k::Real, p::PointArray) = PointArray(k*p.x, k*p.y, k*p.z, p.n)
 Base.:*(p::PointArray, k::Real) = Base.:*(k, p)
+
+# These are equivalent to scaling each point in the PointArray by a different scalar
+Base.:*(p::PointArray, v::AbstractVector) = PointArray(v.*p.x, v.*p.y, v.*p.z)
+Base.:*(v::AbstractVector, p::PointArray) = p*v
 
 struct Volume
     edges::Vector
