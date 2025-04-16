@@ -69,7 +69,7 @@ function enter_exit_points(v::Volume, pa1::PointArray, pa2::PointArray)
     zmin, zmax = minimum(v.edges[3]), maximum(v.edges[3])
     a1 = (zmin .- pa1.z) ./ Δp.z
     a2 = (zmax .- pa1.z) ./ Δp.z
-    pa1 + a1*Δp, p1 + a2*Δp
+    pa1 + a1*Δp, pa1 + a2*Δp
 end
 
 function path_integrated_density(v::Volume, p1::AbstractArray, p2::AbstractArray)
