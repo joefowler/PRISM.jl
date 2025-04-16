@@ -16,6 +16,7 @@ end
 PointArray(x::Number, y::Number, z::Number) = PointArray([x], [y], [z])
 PointArray(a::AbstractMatrix) = PointArray(a[:,1], a[:,2], a[:,3])
 PointArray(v::AbstractVector) = PointArray(v...)
+Base.getindex(p::PointArray, i::Integer) = [p.x[i], p.y[i], p.z[i]]
 matrix(p::PointArray) = hcat(p.x, p.y, p.z)
 
 Base.:+(a::PointArray, b::PointArray) = PointArray(a.x.+b.x, a.y.+b.y, a.z.+b.z, a.n)
@@ -131,6 +132,40 @@ function path_integrated_density(v::Volume, p1::AbstractArray, p2::AbstractArray
     integral
 end
 
+    """merge_sorted(a::AbstractVector, b::AbstractVector, [c::AbstractVector])
+
+    Assumes that both `a` and `b` are pre-sorted vectors of the same type.
+    Returns an array that contains all elements of either input, sorted. If `c` is also given, merge all 3 arrays.
+    """
+function merge_sorted(a::AbstractVector, b::AbstractVector)
+    na = length(a)
+    nb = length(b)
+    na == 0 && return b
+    nb == 0 && return a
+    T = promote_type(eltype(a), eltype(b))
+    merged = Array{T}(undef, na+nb)
+    i = ia = ib = 1
+    while ia ≤ na && ib ≤ nb
+        if a[ia] < b[ib]
+            merged[i] = a[ia]
+            ia += 1
+        else
+            merged[i] = b[ib]
+            ib += 1
+        end
+        i += 1
+    end
+    
+    if ia ≤ na
+        merged[i:end] = a[ia:end]
+    end
+    if ib ≤ nb
+        merged[i:end] = b[ib:end]
+    end
+    merged
+end
+merge_sorted(a::AbstractVector, b::AbstractVector, c::AbstractVector) = merge_sorted(a, merge_sorted(b, c))
+
 function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     pfront, pback = enter_exit_points(v, p1, p2)
     integral = zeros(Float64, p1.n)
@@ -139,61 +174,70 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     vfront = voxelScale(v, pfront)
     vback = voxelScale(v, pback)
     dv = vback - vfront
-    int(x::Real) = Int(floor(x))
+    intfloor(x::Real) = Int(floor(x))
 
     for i in 1:p1.n
         # Let α=[0,1] represent [pfront,pback]. Now find all values of α where a pixel boundary is crossed
         # Start with all crossings of z-plane boundaries
-        α = collect(LinRange(0, 1, 1+v.voxelsPerEdge[3]))
+        αz = LinRange(0, 1, 1+v.voxelsPerEdge[3])
+        αx = Float64[]
+        αy = Float64[]
 
+        # Find all crossings of x-plane boundaries
         fx = vfront.x[i]
         bx = vback.x[i]
-        ifx = int(fx)
-        ibx = int(bx)
-        if fx != bx
-            sign = +1
-            if ifx > ibx
-                sign = -1
-            end
-            crossings = ifx + sign:sign:ibx
+        ifx = intfloor(fx)
+        ibx = intfloor(bx)
+        if ifx != ibx
             dvox = bx-fx
-            for c in crossings
-                push!(α, (c - fx) / dvox)
-            end
+            sign = ifx < ibx ? +1 : -1
+            crossings = ifx+sign:sign:ibx
+            αx = (crossings .- fx) / dvox
         end
 
+        # Find all crossings of y-plane boundaries
         fy = vfront.y[i]
         by = vback.y[i]
-        ify = int(fy)
-        iby = int(by)
-        if fy != by
-            sign = +1
-            if ify > iby
-                sign = -1
-            end
-            crossings = ify + sign:sign:iby
+        ify = intfloor(fy)
+        iby = intfloor(by)
+        if ify != iby
             dvox = by-fy
-            for c in crossings
-                push!(α, (c - fy) / dvox)
-            end
+            sign = ify < iby ? +1 : -1
+            crossings = ify+sign:sign:iby
+            αy = (crossings .- fy) / dvox
         end
         
+        # Merge these together, in least-greatest order
+        α = merge_sorted(αz, αx, αy)
         length(α) ≤ 1 && continue
-        sort!(α)
 
-        xyz_front = [vfront.x[i], vfront.y[i], vfront.z[i]]
-        xyz_displ = [dv.x[i], dv.y[i], dv.z[i]]
+        xyz_front = vfront[i]
+        xyz_displ = dv[i]
         TD = total_distance[i]
         prevα = α[1]
         for nextα in α[2:end]
             thisdist = TD*abs(nextα-prevα)
             thisdist ≤ 0 && continue
-            voxelID = [1+int(x) for x in xyz_front + xyz_displ*prevα]
+            voxelID = [1+intfloor(x) for x in xyz_front + xyz_displ*prevα]
             any(voxelID .< 1) && continue
             any(voxelID .> v.voxelsPerEdge) && continue
             integral[i] += thisdist * v.densities[voxelID...]
             prevα = nextα
         end
+
+        # Try sampling
+        # stepsize = 0.02  # i.e., 20 nm
+        # d = .5*stepsize:stepsize:total_distance[i]
+        # ix = 1 .+int.(vfront.x[i] .+ dv.x[i]*d)
+        # iy = 1 .+int.(vfront.y[i] .+ dv.y[i]*d)
+        # iz = 1 .+int.(vfront.z[i] .+ dv.z[i]*d)
+        # dsum = 0.0
+        # for (a,b,c) in zip(ix, iy, iz)
+        #     if a ≥ 1 && b ≥ 1 && c ≥ 1 && a ≤ v.voxelsPerEdge[1] && b ≤ v.voxelsPerEdge[2] && c ≤ v.voxelsPerEdge[3]
+        #         dsum += v.densities[a, b, c]
+        #     end
+        # end
+        # integral[i] = stepsize * dsum
     end
     integral
 end
