@@ -65,4 +65,13 @@ end
     pC = [4, 5, nz]
     dsum = sum(v.densities[3, 4, 1:div(nz, 2)]) + sum(v.densities[4, 5, (div(nz, 2)+1):end])
     @test PRISM.path_integrated_density(v, pA, pC) ≈ dsum * norm(pC-pA)/nz
+
+    # Repeat, but using the bulk (PointArray) interface.
+    x = nx*rand(Ntests)
+    y = rand(1:ny, Ntests)
+    pa3 = PointArray(x, y.-1, zeros(Ntests))
+    pa4 = PointArray(x, y, nz.+zeros(Ntests))
+    n = norm(pa4-pa3)
+    expected_integral = [sum(v.densities[1+Int(floor(x[i])), y[i], :]) * n[i] /nz for i=1:Ntests]
+    @test all(PRISM.path_integrated_density(v, pa3, pa4) .≈ expected_integral)
 end

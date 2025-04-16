@@ -26,6 +26,8 @@ Base.:*(p::PointArray, k::Real) = Base.:*(k, p)
 # These are equivalent to scaling each point in the PointArray by a different scalar
 Base.:*(p::PointArray, v::AbstractVector) = PointArray(v.*p.x, v.*p.y, v.*p.z)
 Base.:*(v::AbstractVector, p::PointArray) = p*v
+LinearAlgebra.norm(p::PointArray) = sqrt.(p.x.^2 .+ p.y.^2 .+ p.z.^2)
+LinearAlgebra.norm(p::PointArray, q::Real) = sum([abs.(a).^q for a in (p.x, p.y, p.z)]).^(1/q)
 
 struct Volume
     edges::Vector
@@ -123,6 +125,73 @@ function path_integrated_density(v::Volume, p1::AbstractArray, p2::AbstractArray
             any(voxelID .< 1) && continue
             any(voxelID .> v.voxelsPerEdge) && continue
             integral += thisdist * v.densities[voxelID...]
+            prevα = nextα
+        end
+    end
+    integral
+end
+
+function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
+    pfront, pback = enter_exit_points(v, p1, p2)
+    integral = zeros(Float64, p1.n)
+    total_distance = norm(pback-pfront)
+
+    vfront = voxelScale(v, pfront)
+    vback = voxelScale(v, pback)
+    dv = vback - vfront
+    int(x::Real) = Int(floor(x))
+
+    for i in 1:p1.n
+        # Let α=[0,1] represent [pfront,pback]. Now find all values of α where a pixel boundary is crossed
+        # Start with all crossings of z-plane boundaries
+        α = collect(LinRange(0, 1, 1+v.voxelsPerEdge[3]))
+
+        fx = vfront.x[i]
+        bx = vback.x[i]
+        ifx = int(fx)
+        ibx = int(bx)
+        if fx != bx
+            sign = +1
+            if ifx > ibx
+                sign = -1
+            end
+            crossings = ifx + sign:sign:ibx
+            dvox = bx-fx
+            for c in crossings
+                push!(α, (c - fx) / dvox)
+            end
+        end
+
+        fy = vfront.y[i]
+        by = vback.y[i]
+        ify = int(fy)
+        iby = int(by)
+        if fy != by
+            sign = +1
+            if ify > iby
+                sign = -1
+            end
+            crossings = ify + sign:sign:iby
+            dvox = by-fy
+            for c in crossings
+                push!(α, (c - fy) / dvox)
+            end
+        end
+        
+        length(α) ≤ 1 && continue
+        sort!(α)
+
+        xyz_front = [vfront.x[i], vfront.y[i], vfront.z[i]]
+        xyz_displ = [dv.x[i], dv.y[i], dv.z[i]]
+        TD = total_distance[i]
+        prevα = α[1]
+        for nextα in α[2:end]
+            thisdist = TD*abs(nextα-prevα)
+            thisdist ≤ 0 && continue
+            voxelID = [1+int(x) for x in xyz_front + xyz_displ*prevα]
+            any(voxelID .< 1) && continue
+            any(voxelID .> v.voxelsPerEdge) && continue
+            integral[i] += thisdist * v.densities[voxelID...]
             prevα = nextα
         end
     end
