@@ -140,8 +140,6 @@ end
 function merge_sorted(a::AbstractVector, b::AbstractVector)
     na = length(a)
     nb = length(b)
-    na == 0 && return b
-    nb == 0 && return a
     T = promote_type(eltype(a), eltype(b))
     merged = Array{T}(undef, na+nb)
     i = ia = ib = 1
@@ -179,34 +177,24 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     for i in 1:p1.n
         # Let α=[0,1] represent [pfront,pback]. Now find all values of α where a pixel boundary is crossed
         # Start with all crossings of z-plane boundaries
-        αz = LinRange(0, 1, 1+v.voxelsPerEdge[3])
-        αx = Float64[]
-        αy = Float64[]
+        α = LinRange(0, 1, 1+v.voxelsPerEdge[3])
 
         # Find all crossings of x-plane boundaries
         fx = vfront.x[i]
         bx = vback.x[i]
         ifx = intfloor(fx)
         ibx = intfloor(bx)
-        if ifx != ibx
-            sign = ifx < ibx ? +1 : -1
-            crossings = ifx+sign:sign:ibx
-            αx = (crossings .- fx) / (bx-fx)
-        end
+        xcrossings = ifx < ibx ? (ifx+1:ibx) : (ifx:-1:ibx+1)
+        α = merge_sorted(α, (xcrossings .- fx) / (bx-fx))
 
         # Find all crossings of y-plane boundaries
         fy = vfront.y[i]
         by = vback.y[i]
         ify = intfloor(fy)
         iby = intfloor(by)
-        if ify != iby
-            sign = ify < iby ? +1 : -1
-            crossings = ify+sign:sign:iby
-            αy = (crossings .- fy) / (by-fy)
-        end
+        ycrossings = ify < iby ? (ify+1:iby) : (ify:-1:iby+1)
+        α = merge_sorted(α, (ycrossings .- fy) / (by-fy))
         
-        # Merge these together, in least-greatest order
-        α = merge_sorted(αz, αx, αy)
         length(α) ≤ 1 && continue
 
         xyz_front = vfront[i]

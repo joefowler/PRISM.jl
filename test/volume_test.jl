@@ -39,11 +39,11 @@ end
 
     @test PRISM.corners(v) == [[0,nx],[0,ny], [0,nz]]
     p = [1.5, 2.5, 1.3]
-    @test all(PRISM.voxelScale(v, p) .≈ p)
+    @test all(PRISM.real2voxel(v, p) .≈ p)
 
     x = y = z = 1:3
     pa = PointArray(x,y,z)
-    pa2 = PRISM.voxelScale(v, pa)
+    pa2 = PRISM.real2voxel(v, pa)
     @test all(pa2.x .== x)
 
     # With a random pattern, check that z-aligned paths agree
