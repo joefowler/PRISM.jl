@@ -42,6 +42,14 @@ function Volume(edges::AbstractVector, densities::AbstractArray)
 end
 
 corners(v::Volume) = [[minimum(x), maximum(x)] for x in v.edges]
+
+function voxelScale(v::Volume, pa::PointArray)
+    ex, ey, ez = v.edges
+    x = (pa.x .- minimum(ex)) / step(ex)
+    y = (pa.y .- minimum(ey)) / step(ey)
+    z = (pa.z .- minimum(ez)) / step(ez)
+    PointArray(x, y, z, pa.n)
+end
 voxelScale(v::Volume, p::AbstractArray) = [(x-minimum(e))/step(e) for (x,e) in zip(p, v.edges)]
 
 function enter_exit_points(v::Volume, p1::AbstractArray, p2::AbstractArray)

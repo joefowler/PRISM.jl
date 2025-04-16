@@ -41,6 +41,11 @@ end
     p = [1.5, 2.5, 1.3]
     @test all(PRISM.voxelScale(v, p) .≈ p)
 
+    x = y = z = 1:3
+    pa = PointArray(x,y,z)
+    pa2 = PRISM.voxelScale(v, pa)
+    @test all(pa2.x .== x)
+
     # With a random pattern, check that z-aligned paths agree
     v.densities[:,:,:] = rand(nx, ny, nz)
     @test PRISM.path_integrated_density(v, [1.5, 1.5, 0], [1.5, 1.5, nz]) ≈ sum(v.densities[2, 2, :])
