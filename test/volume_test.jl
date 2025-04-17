@@ -75,3 +75,16 @@ end
     expected_integral = [sum(v.densities[1+Int(floor(x[i])), y[i], :]) * n[i] /nz for i=1:Ntests]
     @test all(PRISM.path_integrated_density(v, pa3, pa4) .≈ expected_integral)
 end
+
+@testset "merge_sorted" begin
+    # Try with two ranges and one true array.
+    a = 1:3:10
+    b = 2:3:10
+    c = [3, 6, 9]
+    merge_sorted = PRISM.merge_sorted
+    @test all(merge_sorted(a,b) .== [1,2,4,5,7,8,10])
+    @test all(merge_sorted(b,a) .== [1,2,4,5,7,8,10])
+    @test all(merge_sorted(a,c) .== [1,3,4,6,7,9,10])
+    @test all(merge_sorted(a,b,c) .== [1,2,3,4,5,6,7,8,9,10])
+    @test all(merge_sorted(a,b,c,c,a,b) .== [1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10])
+end

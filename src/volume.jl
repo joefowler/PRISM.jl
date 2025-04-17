@@ -162,7 +162,7 @@ function merge_sorted(a::AbstractVector, b::AbstractVector)
     end
     merged
 end
-merge_sorted(a::AbstractVector, b::AbstractVector, c::AbstractVector) = merge_sorted(a, merge_sorted(b, c))
+merge_sorted(a::AbstractVector, b::AbstractVector, args...) = merge_sorted(merge_sorted(a, b), args...)
 
 function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     pfront, pback = enter_exit_points(v, p1, p2)
