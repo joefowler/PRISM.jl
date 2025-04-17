@@ -106,55 +106,6 @@ function enter_exit_points(v::Volume, pa1::PointArray, pa2::PointArray)
     pa1 + a1*Δp, pa1 + a2*Δp
 end
 
-function path_integrated_density(v::Volume, p1::AbstractArray, p2::AbstractArray)
-    pfront, pback = enter_exit_points(v, p1, p2)
-    C1, C2, _ = corners(v)
-    involume1 = pfront[1] ≥ C1[1] && pfront[1] ≤ C1[2] && pfront[2] ≥ C2[1] && pfront[2] ≤ C2[2]
-    involume2 = pback[1] ≥ C1[1] && pback[1] ≤ C1[2] && pback[2] ≥ C2[1] && pback[2] ≤ C2[2]
-    !(involume1 || involume2) && return 0.0
-    total_distance = norm(pback-pfront)
-    
-    # Let α=[0,1] represent [pfront,pback]. Now find all values of α where a pixel boundary is crossed
-    # Start with all crossings of z-plane boundaries
-    α = collect(LinRange(0, 1, 1+v.voxelsPerEdge[3]))
-
-    vfront = real2voxel(v, pfront)
-    vback = real2voxel(v, pback)
-    dv = vback - vfront
-
-    for axis in (1,2)
-        iffront = Int(floor(vfront[axis]))
-        ifback = Int(floor(vback[axis]))
-        if iffront != ifback
-            sign = +1
-            if iffront > ifback
-                sign = -1
-            end
-            crossings = iffront+sign:sign:ifback
-            dvox = vback[axis]-vfront[axis]
-            for c in crossings
-                push!(α, (c - vfront[axis]) / dvox)
-            end
-        end
-    end
-    sort!(α)
-
-    integral = 0.0
-    if length(α) ≥ 2
-        prevα = α[1]
-        for nextα in α[2:end]
-            thisdist = total_distance*abs(nextα-prevα)
-            thisdist ≤ 0 && continue
-            voxelID = [1+Int(floor(x)) for x in (vfront + dv*prevα)]
-            any(voxelID .< 1) && continue
-            any(voxelID .> v.voxelsPerEdge) && continue
-            integral += thisdist * v.densities[voxelID...]
-            prevα = nextα
-        end
-    end
-    integral
-end
-
     """merge_sorted(a::AbstractVector, b::AbstractVector, [c::AbstractVector])
 
     Assumes that both `a` and `b` are pre-sorted vectors of the same type.
@@ -248,3 +199,5 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     end
     integral
 end
+
+path_integrated_density(v::Volume, p1, p2) = path_integrated_density(v, PointArray(p1), PointArray(p2))[1]
