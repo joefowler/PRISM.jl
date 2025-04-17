@@ -30,8 +30,8 @@ Base.:*(v::AbstractVector, p::PointArray) = p*v
 LinearAlgebra.norm(p::PointArray) = sqrt.(p.x.^2 .+ p.y.^2 .+ p.z.^2)
 LinearAlgebra.norm(p::PointArray, q::Real) = sum([abs.(a).^q for a in (p.x, p.y, p.z)]).^(1/q)
 
-struct Volume
-    edges::Vector
+struct Volume{T<:AbstractVector}
+    edges::T
     densities::Array{Float64}
     voxelsPerEdge::Vector{Int}
     voxelsTotal::Int
@@ -168,11 +168,13 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     pfront, pback = enter_exit_points(v, p1, p2)
     integral = zeros(Float64, p1.n)
     total_distance = norm(pback-pfront)
+    densities = v.densities
 
     vfront = real2voxel(v, pfront)
     vback = real2voxel(v, pback)
     dv = vback - vfront
     intfloor(x::Real) = Int(floor(x))
+    vpex, vpey, vpez = v.voxelsPerEdge
 
     for i in 1:p1.n
         # Let α=[0,1] represent [pfront,pback]. Now find all values of α where a pixel boundary is crossed
@@ -203,9 +205,11 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
         prevα = α[1]
         for nextα in α[2:end]
             thisdist = TD*abs(nextα-prevα)
-            voxelID = [1+intfloor(x) for x in xyz_front + xyz_displ*prevα]
-            if all(voxelID .≥ 1) && all(voxelID .≤ v.voxelsPerEdge)
-                integral[i] += thisdist * v.densities[voxelID...]
+            ix = 1 + intfloor(xyz_front[1] + xyz_displ[1]*prevα)
+            iy = 1 + intfloor(xyz_front[2] + xyz_displ[2]*prevα)
+            iz = 1 + intfloor(xyz_front[3] + xyz_displ[3]*prevα)
+            if ix ≥ 1 && iy ≥ 1 && iz ≥ 1 && ix ≤ vpex && iy ≤ vpey && iz ≤ vpez
+                integral[i] += thisdist * densities[ix, iy, iz]
             end
             prevα = nextα
         end
