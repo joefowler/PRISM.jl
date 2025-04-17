@@ -223,20 +223,24 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
         
         length(α) ≤ 1 && continue
 
-        xyz_front = vfront[i]
-        xyz_displ = dv[i]
         TD = total_distance[i]
+        XF, YF, ZF = vfront[i]
+        XD, YD, ZD = dv[i]
         integral_i = 0.0
-        XF, YF, ZF = xyz_front
-        XD, YD, ZD = xyz_displ
         prevα = α[1]
         for nextα in α[2:end]
-            thisdist = TD*abs(nextα-prevα)
-            ix = 1 + intround(XF + XD*prevα)
-            iy = 1 + intround(YF + YD*prevα)
-            iz = 1 + intround(ZF + ZD*prevα)
-            if ix ≥ 1 && iy ≥ 1 && iz ≥ 1 && ix ≤ vpex && iy ≤ vpey && iz ≤ vpez
-                integral_i += thisdist * densities[ix, iy, iz]
+            # Choose the pixel ID for this segment based on the midpoint between where it enters and
+            # exits the pixel (that will be a fraction `midα` along the way from the "front" to the "back"
+            # of the line segment). This prevents roundoff errors that might convert index 3.99999999 → 3
+            # instead of the desired 4, if we used prevα or nextα alone as the indicator.
+            midα = 0.5*(nextα+prevα)
+            ix = intfloor(XF + XD*midα)
+            iy = intfloor(YF + YD*midα)
+            iz = intfloor(ZF + ZD*midα)
+            if ix ≥ 0 && iy ≥ 0 && iz ≥ 0 && ix < vpex && iy < vpey && iz < vpez
+                thisdist = TD*abs(nextα-prevα)
+                index_1d = 1+ix + vpex*(iy + vpey*iz)
+                integral_i += thisdist * densities[index_1d]
             end
             prevα = nextα
         end
