@@ -196,7 +196,8 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     vfront = real2voxel(v, pfront)
     vback = real2voxel(v, pback)
     dv = vback - vfront
-    intfloor(x::Real) = Int(floor(x))
+    intfloor(x::Real) = floor(Int, x)
+    intround(x::Real) = round(Int, x)
     vpex, vpey, vpez = v.voxelsPerEdge
 
     for i in 1:p1.n
@@ -226,12 +227,14 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
         xyz_displ = dv[i]
         TD = total_distance[i]
         integral_i = 0.0
+        XF, YF, ZF = xyz_front
+        XD, YD, ZD = xyz_displ
         prevα = α[1]
         for nextα in α[2:end]
             thisdist = TD*abs(nextα-prevα)
-            ix = 1 + intfloor(xyz_front[1] + xyz_displ[1]*prevα)
-            iy = 1 + intfloor(xyz_front[2] + xyz_displ[2]*prevα)
-            iz = 1 + intfloor(xyz_front[3] + xyz_displ[3]*prevα)
+            ix = 1 + intround(XF + XD*prevα)
+            iy = 1 + intround(YF + YD*prevα)
+            iz = 1 + intround(ZF + ZD*prevα)
             if ix ≥ 1 && iy ≥ 1 && iz ≥ 1 && ix ≤ vpex && iy ≤ vpey && iz ≤ vpez
                 integral_i += thisdist * densities[ix, iy, iz]
             end
