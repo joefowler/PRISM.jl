@@ -202,6 +202,7 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
         xyz_front = vfront[i]
         xyz_displ = dv[i]
         TD = total_distance[i]
+        integral_i = 0.0
         prevα = α[1]
         for nextα in α[2:end]
             thisdist = TD*abs(nextα-prevα)
@@ -209,10 +210,11 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
             iy = 1 + intfloor(xyz_front[2] + xyz_displ[2]*prevα)
             iz = 1 + intfloor(xyz_front[3] + xyz_displ[3]*prevα)
             if ix ≥ 1 && iy ≥ 1 && iz ≥ 1 && ix ≤ vpex && iy ≤ vpey && iz ≤ vpez
-                integral[i] += thisdist * densities[ix, iy, iz]
+                integral_i += thisdist * densities[ix, iy, iz]
             end
             prevα = nextα
         end
+        integral[i] = integral_i
     end
     integral
 end
