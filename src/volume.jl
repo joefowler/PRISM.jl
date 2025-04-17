@@ -1,5 +1,17 @@
 using LinearAlgebra
 
+    """PointArray
+
+Describes an ordered set of locations in 3d space. 
+
+Fields
+---------
+    x::Vector{Float64}
+    y::Vector{Float64}
+    z::Vector{Float64}
+    n::Int
+
+    """
 struct PointArray
     x::Vector{Float64}
     y::Vector{Float64}
@@ -30,6 +42,17 @@ Base.:*(v::AbstractVector, p::PointArray) = p*v
 LinearAlgebra.norm(p::PointArray) = sqrt.(p.x.^2 .+ p.y.^2 .+ p.z.^2)
 LinearAlgebra.norm(p::PointArray, q::Real) = sum([abs.(a).^q for a in (p.x, p.y, p.z)]).^(1/q)
 
+    """Volume
+
+Represent a volume broken into voxels shaped as rectangular prism.
+
+Fields
+-------
+    edges         :: T<:(AbstractVector)
+    densities     :: Array{Float64}
+    voxelsPerEdge :: Vector{Int64}
+    voxelsTotal   :: Int64
+    """
 struct Volume{T<:AbstractVector}
     edges::T
     densities::Array{Float64}
