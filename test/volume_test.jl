@@ -25,7 +25,7 @@ using LinearAlgebra
     end
 end
 
-@testset "volume_object" begin
+@testset "Volume object" begin
     nx, ny, nz = 4, 5, 4
     edges = [0:nx, 0:ny, 0:nz]
     v = Volume(edges)
@@ -40,6 +40,12 @@ end
     @test PRISM.corners(v) == [[0,nx],[0,ny], [0,nz]]
     p = [1.5, 2.5, 1.3]
     @test all(PRISM.real2voxel(v, p) .≈ p)
+end
+
+@testset "Ray intersect" begin
+    nx, ny, nz = 4, 5, 4
+    edges = [0:nx, 0:ny, 0:nz]
+    v = Volume(edges)
 
     x = y = z = 1:3
     pa = PointArray(x,y,z)
@@ -52,7 +58,7 @@ end
     @test PRISM.path_integrated_density(v, [1.5, 3.5, 0], [1.5, 3.5, nz]) ≈ sum(v.densities[2, 4, :])
 
     # Now check a few random positions where the line goes from one y-plane pixel edge to the next
-    Ntests = 5
+    Ntests = 10
     for (x,y) in zip(nx*rand(Ntests), rand(1:ny, Ntests))
         p3 = [x, y-1, 0]
         p4 = [x, y, nz]
@@ -67,6 +73,7 @@ end
     @test PRISM.path_integrated_density(v, pA, pC) ≈ dsum * norm(pC-pA)/nz
 
     # Repeat, but using the bulk (PointArray) interface.
+    Ntests = 100
     x = nx*rand(Ntests)
     y = rand(1:ny, Ntests)
     pa3 = PointArray(x, y.-1, zeros(Ntests))
