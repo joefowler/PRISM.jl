@@ -101,8 +101,43 @@ end
     expected_integral = [sum(v.densities[1+Int(floor(x[i])), y[i], :]) * n[i] /nz for i=1:Ntests]
     @test all(PRISM.path_integrated_density(v, pa3, pa4) .≈ expected_integral)
 
-    # Do some tests that cross at known angles
-    # S = -1:
+    # Do some tests that cross at known angles (45°)
+    x_on_y_axis = -ny-1:nx+1
+    for sx in x_on_y_axis
+        s = [sx-1, -1, 0.5]
+        e = [sx+ny+1, ny+1, 0.5]
+        d = PRISM.path_integrated_density(v, s, e)
+        S, E = PRISM.enter_exit_points(v, s, e)
+        expect = 0.0
+        if sx > -ny && sx < nx
+            if sx ≤ 0
+                expect = sqrt(2)*sum([v.densities[i,i-sx,1] for i=1:min(ny+sx, nx)])
+            else    
+                expect = sqrt(2)*sum([v.densities[i+sx,i,1] for i=1:min(ny, nx-sx)])
+            end
+        end
+        @test d ≈ expect
+    end
+
+    s = [0, 0.5, 2.5]
+    e = [nx, nx+0.5, 2.5]
+    d = PRISM.path_integrated_density(v, s, e)
+    expect = sqrt(0.5)*sum([v.densities[i,i,3] + v.densities[i,i+1,3] for i=1:min(nx, ny)])
+    @test d ≈ expect
+
+    s = [-.5, 0, 2.5]
+    e = [nx, nx+0.5, 2.5]
+    d = PRISM.path_integrated_density(v, s, e)
+    expect = sqrt(0.5)*sum([v.densities[i,i,3] + v.densities[i,i+1,3] for i=1:min(nx, ny)])
+    @test d ≈ expect
+    zplane_norm = norm(e-s)
+
+    s = [-.5, 0, 2.0]
+    e = [nx, nx+0.5, 3.0]
+    d = PRISM.path_integrated_density(v, s, e)
+    expect = sqrt(0.5)*sum([v.densities[i,i,3] + v.densities[i,i+1,3] for i=1:min(nx, ny)])
+    expect *= norm(s-e)/zplane_norm
+    @test d ≈ expect
 end
 
 @testset "merge_sorted" begin
