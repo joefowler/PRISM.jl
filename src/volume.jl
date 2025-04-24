@@ -96,21 +96,54 @@ real2voxel(v::Volume, p::AbstractArray) = [(x-minimum(e))/step(e) for (x,e) in z
 function enter_exit_points(v::Volume, p1::AbstractArray, p2::AbstractArray)
     @assert length(p1) == 3
     @assert length(p2) == 3
-    @assert p1[3] != p2[3]
+    Δp = p2 - p1
 
-    dx = p2 - p1
-    zmin, zmax = minimum(v.edges[3]), maximum(v.edges[3])
-    a1 = (zmin - p1[3]) / dx[3]
-    a2 = (zmax - p1[3]) / dx[3]
-    p1 + a1*dx, p1 + a2*dx
+    axmin = (minimum(v.edges[1]) - p1[1]) / Δp[1]
+    axmax = (maximum(v.edges[1]) - p1[1]) / Δp[1]
+    aymin = (minimum(v.edges[2]) - p1[2]) / Δp[2]
+    aymax = (maximum(v.edges[2]) - p1[2]) / Δp[2]
+    azmin = (minimum(v.edges[3]) - p1[3]) / Δp[3]
+    azmax = (maximum(v.edges[3]) - p1[3]) / Δp[3]
+    if axmin > axmax
+        axmin, axmax = axmax, axmin
+    end
+    if aymin > aymax
+        aymin, aymax = aymax, aymin
+    end
+    if azmin > azmax
+        azmin, azmax = azmax, azmin
+    end
+
+    amin = max(axmin, aymin, azmin)
+    amax = min(axmax, aymax, azmax)
+    p1 + amin*Δp, p1 + amax*Δp
 end
 
 function enter_exit_points(v::Volume, pa1::PointArray, pa2::PointArray)
     Δp = pa2 - pa1
-    zmin, zmax = minimum(v.edges[3]), maximum(v.edges[3])
-    a1 = (zmin .- pa1.z) ./ Δp.z
-    a2 = (zmax .- pa1.z) ./ Δp.z
-    pa1 + a1*Δp, pa1 + a2*Δp
+    axmin = (minimum(v.edges[1]) .- pa1.x) ./ Δp.x
+    axmax = (maximum(v.edges[1]) .- pa1.x) ./ Δp.x
+    aymin = (minimum(v.edges[2]) .- pa1.y) ./ Δp.y
+    aymax = (maximum(v.edges[2]) .- pa1.y) ./ Δp.y
+    azmin = (minimum(v.edges[3]) .- pa1.z) ./ Δp.z
+    azmax = (maximum(v.edges[3]) .- pa1.z) ./ Δp.z
+    reverse = axmin .> axmax
+    if any(reverse)
+        axmin[reverse], axmax[reverse] = axmax[reverse], axmin[reverse]
+    end
+    reverse = aymin .> aymax
+    if any(reverse)
+        aymin[reverse], aymax[reverse] = aymax[reverse], aymin[reverse]
+    end
+    reverse = azmin .> azmax
+    if any(reverse)
+        azmin[reverse], azmax[reverse] = azmax[reverse], azmin[reverse]
+    end
+
+    amin = max.(axmin, aymin, azmin)
+    amax = min.(axmax, aymax, azmax)
+
+    pa1 + (Δp*amin), pa1 + (Δp*amax)
 end
 
     """merge_sorted(a::AbstractVector, b::AbstractVector, [c::AbstractVector])
