@@ -98,25 +98,29 @@ function enter_exit_points(v::Volume, p1::AbstractArray, p2::AbstractArray)
     @assert length(p2) == 3
     Δp = p2 - p1
 
-    axmin = (minimum(v.edges[1]) - p1[1]) / Δp[1]
-    axmax = (maximum(v.edges[1]) - p1[1]) / Δp[1]
-    aymin = (minimum(v.edges[2]) - p1[2]) / Δp[2]
-    aymax = (maximum(v.edges[2]) - p1[2]) / Δp[2]
-    azmin = (minimum(v.edges[3]) - p1[3]) / Δp[3]
-    azmax = (maximum(v.edges[3]) - p1[3]) / Δp[3]
-    if axmin > axmax
-        axmin, axmax = axmax, axmin
+    αxmin = (minimum(v.edges[1]) - p1[1]) / Δp[1]
+    αxmax = (maximum(v.edges[1]) - p1[1]) / Δp[1]
+    αymin = (minimum(v.edges[2]) - p1[2]) / Δp[2]
+    αymax = (maximum(v.edges[2]) - p1[2]) / Δp[2]
+    αzmin = (minimum(v.edges[3]) - p1[3]) / Δp[3]
+    αzmax = (maximum(v.edges[3]) - p1[3]) / Δp[3]
+    if αxmin > αxmax
+        αxmin, αxmax = αxmax, αxmin
     end
-    if aymin > aymax
-        aymin, aymax = aymax, aymin
+    if αymin > αymax
+        αymin, αymax = αymax, αymin
     end
-    if azmin > azmax
-        azmin, azmax = azmax, azmin
+    if αzmin > αzmax
+        αzmin, αzmax = αzmax, αzmin
     end
 
-    amin = max(axmin, aymin, azmin)
-    amax = min(axmax, aymax, azmax)
-    p1 + amin*Δp, p1 + amax*Δp
+    αmin = max(αxmin, αymin, αzmin)
+    αmax = min(αxmax, αymax, αzmax)
+    # If ray doesn't pass through the region, that's seen with αmin<αmax
+    if αmax < αmin
+        αmax = αmin
+    end
+    p1 + αmin*Δp, p1 + αmax*Δp
 end
 
 function enter_exit_points(v::Volume, pa1::PointArray, pa2::PointArray)
@@ -142,6 +146,8 @@ function enter_exit_points(v::Volume, pa1::PointArray, pa2::PointArray)
 
     amin = max.(axmin, aymin, azmin)
     amax = min.(axmax, aymax, azmax)
+    no_overlap = amax .< amin
+    amax[no_overlap] .= amin[no_overlap]
 
     pa1 + (Δp*amin), pa1 + (Δp*amax)
 end
