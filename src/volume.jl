@@ -25,10 +25,17 @@ function PointArray(x::AbstractVector, y::AbstractVector, z::AbstractVector)
     @assert n == length(z)
     PointArray(x, y, z, n)
 end
-PointArray(x::Number, y::Number, z::Number) = PointArray([x], [y], [z])
+PointArray(x::Real, y::AbstractVector, z::AbstractVector) = PointArray(fill(x, length(y)), y, z)
+PointArray(x::AbstractVector, y::Real, z::AbstractVector) = PointArray(x, fill(y, length(x)),z)
+PointArray(x::AbstractVector, y::AbstractVector, z::Real) = PointArray(x, y, fill(z, length(y)))
+PointArray(x::Real, y::Real, z::AbstractVector) = PointArray(fill(x, length(z)), fill(y, length(z)), z)
+PointArray(x::AbstractVector, y::Real, z::Real) = PointArray(x, fill(y, length(x)),fill(z, length(x)))
+PointArray(x::Real, y::AbstractVector, z::Real) = PointArray(fill(x, length(y)), y, fill(z, length(y)))
+PointArray(x::Real, y::Real, z::Real) = PointArray([x], [y], [z])
 PointArray(a::AbstractMatrix) = PointArray(a[:,1], a[:,2], a[:,3])
 PointArray(v::AbstractVector) = PointArray(v...)
 Base.getindex(p::PointArray, i::Integer) = [p.x[i], p.y[i], p.z[i]]
+Base.length(p::PointArray) = p.n
 matrix(p::PointArray) = hcat(p.x, p.y, p.z)
 
 Base.:+(a::PointArray, b::PointArray) = PointArray(a.x.+b.x, a.y.+b.y, a.z.+b.z, a.n)

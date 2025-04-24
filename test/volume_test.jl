@@ -23,6 +23,25 @@ using LinearAlgebra
         @test all(double.y .== 2y)
         @test all(double.z .== 2z)
     end
+
+    a1 = 1:5
+    a2 = [-3, 2, 10, 4.4, 14]
+    tests = [
+        [a1, 0, 5],
+        [3, a1, 4],
+        [0, 5, a1],
+        [a1, a2, 5],
+        [a2, a1, 4],
+        [0, a2, a1],
+        [a2, 5, a1],
+    ]
+    for (x, y, z) in tests
+        p = PointArray(x, y, z)
+        @test all(p.x .== x)
+        @test all(p.y .== y)
+        @test all(p.z .== z)
+        @test length(p) == length(a1)
+    end
 end
 
 @testset "Volume object" begin
@@ -81,6 +100,9 @@ end
     n = norm(pa4-pa3)
     expected_integral = [sum(v.densities[1+Int(floor(x[i])), y[i], :]) * n[i] /nz for i=1:Ntests]
     @test all(PRISM.path_integrated_density(v, pa3, pa4) .≈ expected_integral)
+
+    # Do some tests that cross at known angles
+    # S = -1:
 end
 
 @testset "merge_sorted" begin
