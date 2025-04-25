@@ -1,49 +1,6 @@
 using PRISM
 using LinearAlgebra
 
-@testset "PointArray" begin
-    @test_throws AssertionError PointArray([1,2,3], [1,2,3,4], [1,2])
-    x = 1:4
-    y = x.+2
-    z = x.+1
-    # Test artithmetic on PointArray
-    pa = PointArray(x,y,z)
-    tests = [
-        [0pa, 0, 0, 0],
-        [3pa, 3x, 3y, 3z],
-        [pa*3, 3x, 3y, 3z],
-        [pa-2pa, -x, -y, -z],
-        [pa+2pa, 3x, 3y, 3z],
-    ]
-    for (p, x, y, z) in tests
-        @test all(p.x .== x)
-        @test all(p.y .== y)
-        @test all(p.z .== z)
-    end
-
-    # Test construction mixing real numbers and vectors
-    a1 = 1:5
-    a2 = [-3, 2, 10, 4.4, 14]
-    tests = [
-        [a1, 0, 5],
-        [3, a1, 4],
-        [0, 5, a1],
-        [a1, a2, 5],
-        [a2, a1, 4],
-        [0, a2, a1],
-        [a2, 5, a1],
-        [8,7,5],
-    ]
-    for (x, y, z) in tests
-        p = PointArray(x, y, z)
-        @test all(p.x .== x)
-        @test all(p.y .== y)
-        @test all(p.z .== z)
-        @test length(p) == p.n
-        @test length(p) == maximum([length(a) for a in (x,y,z)])
-    end
-end
-
 @testset "Volume object" begin
     nx, ny, nz = 4, 5, 4
     edges = [0:nx, 0:ny, 0:nz]
@@ -66,10 +23,10 @@ end
     edges = [0:nx, 0:ny, 0:nz]
     v = Volume(edges)
 
-    x = y = z = 1:3
+    x = y = z = 1.5:1:5.5
     pa = PointArray(x,y,z)
     pa2 = PRISM.real2voxel(v, pa)
-    @test all(pa2.x .== x)
+    @test all([p.x for p in pa2] .== x)
 
     # With a random pattern, check that z-aligned paths agree
     v.densities[:,:,:] = rand(nx, ny, nz)

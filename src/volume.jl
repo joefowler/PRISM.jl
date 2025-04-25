@@ -1,54 +1,5 @@
 using LinearAlgebra
 
-    """PointArray
-
-Describes an ordered set of locations in 3d space. 
-
-Fields
----------
-    x::Vector{Float64}
-    y::Vector{Float64}
-    z::Vector{Float64}
-    n::Int
-
-    """
-struct PointArray
-    x::Vector{Float64}
-    y::Vector{Float64}
-    z::Vector{Float64}
-    n::Int
-end
-
-function PointArray(x::AbstractVector, y::AbstractVector, z::AbstractVector)
-    n = length(x)
-    @assert n == length(y)
-    @assert n == length(z)
-    PointArray(x, y, z, n)
-end
-PointArray(x::Real, y::AbstractVector, z::AbstractVector) = PointArray(fill(x, length(y)), y, z)
-PointArray(x::AbstractVector, y::Real, z::AbstractVector) = PointArray(x, fill(y, length(x)),z)
-PointArray(x::AbstractVector, y::AbstractVector, z::Real) = PointArray(x, y, fill(z, length(y)))
-PointArray(x::Real, y::Real, z::AbstractVector) = PointArray(fill(x, length(z)), fill(y, length(z)), z)
-PointArray(x::AbstractVector, y::Real, z::Real) = PointArray(x, fill(y, length(x)),fill(z, length(x)))
-PointArray(x::Real, y::AbstractVector, z::Real) = PointArray(fill(x, length(y)), y, fill(z, length(y)))
-PointArray(x::Real, y::Real, z::Real) = PointArray([x], [y], [z])
-PointArray(a::AbstractMatrix) = PointArray(a[:,1], a[:,2], a[:,3])
-PointArray(v::AbstractVector) = PointArray(v...)
-Base.getindex(p::PointArray, i::Integer) = [p.x[i], p.y[i], p.z[i]]
-Base.length(p::PointArray) = p.n
-matrix(p::PointArray) = hcat(p.x, p.y, p.z)
-
-Base.:+(a::PointArray, b::PointArray) = PointArray(a.x.+b.x, a.y.+b.y, a.z.+b.z, a.n)
-Base.:-(a::PointArray, b::PointArray) = PointArray(a.x.-b.x, a.y.-b.y, a.z.-b.z, a.n)
-Base.:*(k::Real, p::PointArray) = PointArray(k*p.x, k*p.y, k*p.z, p.n)
-Base.:*(p::PointArray, k::Real) = Base.:*(k, p)
-
-# These are equivalent to scaling each point in the PointArray by a different scalar
-Base.:*(p::PointArray, v::AbstractVector) = PointArray(v.*p.x, v.*p.y, v.*p.z)
-Base.:*(v::AbstractVector, p::PointArray) = p*v
-LinearAlgebra.norm(p::PointArray) = sqrt.(p.x.^2 .+ p.y.^2 .+ p.z.^2)
-LinearAlgebra.norm(p::PointArray, q::Real) = sum([abs.(a).^q for a in (p.x, p.y, p.z)]).^(1/q)
-
     """Volume
 
 Represent a volume broken into voxels shaped as rectangular prism.
@@ -83,27 +34,29 @@ function Volume(edges::AbstractVector, densities::AbstractArray)
 end
 
 corners(v::Volume) = [[minimum(x), maximum(x)] for x in v.edges]
+minedges(v::Volume) = [minimum(x) for x in v.edges]
+maxedges(v::Volume) = [maximum(x) for x in v.edges]
+stepsize(v::Volume) = [step(a) for a in v.edges]
 
 function real2voxel(v::Volume, pa::PointArray)
-    ex, ey, ez = v.edges
-    x = (pa.x .- minimum(ex)) / step(ex)
-    y = (pa.y .- minimum(ey)) / step(ey)
-    z = (pa.z .- minimum(ez)) / step(ez)
-    PointArray(x, y, z, pa.n)
+    mx, my, mz = minedges(v)
+    sx, sy, sz = stepsize(v)
+    m = [Vec3D((p.x-mx)/sx, (p.y-my)/sy, (p.z-mz)/sz) for p in pa]
+    PointArray{eltype(m[1])}(m)
 end
 real2voxel(v::Volume, p::AbstractArray) = [(x-minimum(e))/step(e) for (x,e) in zip(p, v.edges)]
 
-function enter_exit_points(v::Volume, p1::AbstractArray, p2::AbstractArray)
-    @assert length(p1) == 3
-    @assert length(p2) == 3
+function enter_exit_points(v::Volume, p1::Vec3D, p2::Vec3D)
     Δp = p2 - p1
 
-    αxmin = (minimum(v.edges[1]) - p1[1]) / Δp[1]
-    αxmax = (maximum(v.edges[1]) - p1[1]) / Δp[1]
-    αymin = (minimum(v.edges[2]) - p1[2]) / Δp[2]
-    αymax = (maximum(v.edges[2]) - p1[2]) / Δp[2]
-    αzmin = (minimum(v.edges[3]) - p1[3]) / Δp[3]
-    αzmax = (maximum(v.edges[3]) - p1[3]) / Δp[3]
+    mx, my, mz = minedges(v)
+    qx, qy, qz = maxedges(v)
+    αxmin = (mx - p1.x) / Δp.x
+    αxmax = (qx - p1.x) / Δp.x
+    αymin = (my - p1.y) / Δp.y
+    αymax = (qy - p1.y) / Δp.y
+    αzmin = (mz - p1.z) / Δp.z
+    αzmax = (qz - p1.z) / Δp.z
     if αxmin > αxmax
         αxmin, αxmax = αxmax, αxmin
     end
@@ -122,34 +75,43 @@ function enter_exit_points(v::Volume, p1::AbstractArray, p2::AbstractArray)
     end
     p1 + αmin*Δp, p1 + αmax*Δp
 end
+enter_exit_points(v::Volume, p1::AbstractArray, p2::AbstractArray) = enter_exit_points(v, Vec3D(p1), Vec3D(p2))
 
 function enter_exit_points(v::Volume, pa1::PointArray, pa2::PointArray)
     Δp = pa2 - pa1
-    axmin = (minimum(v.edges[1]) .- pa1.x) ./ Δp.x
-    axmax = (maximum(v.edges[1]) .- pa1.x) ./ Δp.x
-    aymin = (minimum(v.edges[2]) .- pa1.y) ./ Δp.y
-    aymax = (maximum(v.edges[2]) .- pa1.y) ./ Δp.y
-    azmin = (minimum(v.edges[3]) .- pa1.z) ./ Δp.z
-    azmax = (maximum(v.edges[3]) .- pa1.z) ./ Δp.z
-    reverse = axmin .> axmax
-    if any(reverse)
-        axmin[reverse], axmax[reverse] = axmax[reverse], axmin[reverse]
-    end
-    reverse = aymin .> aymax
-    if any(reverse)
-        aymin[reverse], aymax[reverse] = aymax[reverse], aymin[reverse]
-    end
-    reverse = azmin .> azmax
-    if any(reverse)
-        azmin[reverse], azmax[reverse] = azmax[reverse], azmin[reverse]
-    end
+    n = length(pa1)
+    αmin = Array{Float64}(undef, n)
+    αmax = Array{Float64}(undef, n)
 
-    amin = max.(axmin, aymin, azmin)
-    amax = min.(axmax, aymax, azmax)
-    no_overlap = amax .< amin
-    amax[no_overlap] .= amin[no_overlap]
+    mx, my, mz = minedges(v)
+    qx, qy, qz = maxedges(v)
+    for i = 1:n
+        p = pa1[i]
+        dp = Δp[i]
 
-    pa1 + (Δp*amin), pa1 + (Δp*amax)
+        a = (mx-p.x)/dp.x
+        b = (qx-p.x)/dp.x
+        αxmin, αxmax = a < b ? (a, b) : (b, a)
+
+        a = (my-p.y)/dp.y
+        b = (qy-p.y)/dp.y
+        αymin, αymax = a < b ? (a, b) : (b, a)
+
+        a = (mz-p.z)/dp.z
+        b = (qz-p.z)/dp.z
+        αzmin, αzmax = a < b ? (a, b) : (b, a)
+
+        a = max(αxmin, αymin, αzmin)
+        b = min(αxmax, αymax, αzmax)
+        if a < b
+            αmin[i] = a
+            αmax[i] = b
+        else
+            αmin[i] = αmax[i] = -1.0
+        end
+    end
+        
+    pa1 + (Δp.*αmin), pa1 + (Δp.*αmax)
 end
 
     """merge_sorted(a::AbstractVector, b::AbstractVector, [c::AbstractVector])
@@ -186,7 +148,7 @@ merge_sorted(a::AbstractVector, b::AbstractVector, args...) = merge_sorted(merge
 
 function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     pfront, pback = enter_exit_points(v, p1, p2)
-    integral = zeros(Float64, p1.n)
+    integral = zeros(Float64, length(p1))
     total_distance = norm(pback-pfront)
     densities = v.densities
 
@@ -197,22 +159,22 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     intround(x::Real) = round(Int, x)
     vpex, vpey, vpez = v.voxelsPerEdge
 
-    for i in 1:p1.n
+    for i in 1:length(p1)
         # Let α=[0,1] represent [pfront,pback]. Now find all values of α where a pixel boundary is crossed
         # Start with all crossings of z-plane boundaries
         α = LinRange(0, 1, 1+v.voxelsPerEdge[3])
 
         # Find all crossings of x-plane boundaries
-        fx = vfront.x[i]
-        bx = vback.x[i]
+        fx = vfront[i].x
+        bx = vback[i].x
         ifx = intfloor(fx)
         ibx = intfloor(bx)
         xcrossings = ifx < ibx ? (ifx+1:ibx) : (ifx:-1:ibx+1)
         α = merge_sorted(α, (xcrossings .- fx) / (bx-fx))
 
         # Find all crossings of y-plane boundaries
-        fy = vfront.y[i]
-        by = vback.y[i]
+        fy = vfront[i].y
+        by = vback[i].y
         ify = intfloor(fy)
         iby = intfloor(by)
         ycrossings = ify < iby ? (ify+1:iby) : (ify:-1:iby+1)
@@ -246,4 +208,4 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
     integral
 end
 
-path_integrated_density(v::Volume, p1, p2) = path_integrated_density(v, PointArray(p1), PointArray(p2))[1]
+path_integrated_density(v::Volume, p1, p2) = path_integrated_density(v, PointArray(p1...), PointArray(p2...))[1]
