@@ -78,40 +78,37 @@ end
 enter_exit_points(v::Volume, p1::AbstractArray, p2::AbstractArray) = enter_exit_points(v, Vec3D(p1), Vec3D(p2))
 
 function enter_exit_points(v::Volume, pa1::PointArray, pa2::PointArray)
-    Δp = pa2 - pa1
     n = length(pa1)
-    αmin = Array{Float64}(undef, n)
-    αmax = Array{Float64}(undef, n)
+    enter = PointArray{Float64}(Array{Vec3D{Float64}}(undef, n))
+    exit = PointArray{Float64}(Array{Vec3D{Float64}}(undef, n))
 
     mx, my, mz = minedges(v)
     qx, qy, qz = maxedges(v)
     for i = 1:n
         p = pa1[i]
-        dp = Δp[i]
+        Δp = pa2[i] - p
 
-        a = (mx-p.x)/dp.x
-        b = (qx-p.x)/dp.x
+        a = (mx-p.x)/Δp.x
+        b = (qx-p.x)/Δp.x
         αxmin, αxmax = a < b ? (a, b) : (b, a)
 
-        a = (my-p.y)/dp.y
-        b = (qy-p.y)/dp.y
+        a = (my-p.y)/Δp.y
+        b = (qy-p.y)/Δp.y
         αymin, αymax = a < b ? (a, b) : (b, a)
 
-        a = (mz-p.z)/dp.z
-        b = (qz-p.z)/dp.z
+        a = (mz-p.z)/Δp.z
+        b = (qz-p.z)/Δp.z
         αzmin, αzmax = a < b ? (a, b) : (b, a)
 
-        a = max(αxmin, αymin, αzmin)
-        b = min(αxmax, αymax, αzmax)
-        if a < b
-            αmin[i] = a
-            αmax[i] = b
-        else
-            αmin[i] = αmax[i] = -1.0
+        αmin = max(αxmin, αymin, αzmin)
+        αmax = min(αxmax, αymax, αzmax)
+        if αmin > αmax
+            αmin = αmax = 0.0
         end
+        enter[i] = p + Δp*αmin
+        exit[i] = p + Δp*αmax
     end
-        
-    pa1 + (Δp.*αmin), pa1 + (Δp.*αmax)
+    enter, exit
 end
 
     """merge_sorted(a::AbstractVector, b::AbstractVector, [c::AbstractVector])
