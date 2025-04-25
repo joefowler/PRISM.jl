@@ -56,10 +56,17 @@ atten_per_cm(m::Material, evec::AbstractVector) = [mac(m, float(e)) for e in eve
 transmission(m, e, thickness::Real) = exp.(-atten_per_cm(m, e) * thickness)
 
 """
-    total_efficiency(energy)
+    total_efficiency(energy; secσ=1.0, secκ=1.0)
 
 Return the total efficiency of our tomography sample given loss in SiO2, graphite, Be window,
-and incomplete absorption in the silicon camera.
+and incomplete absorption in the silicon camera at given `energy` (a vector or single value).
+
+Arguments
+---------
+- `secσ` is the secant of the angle σ between a ray and the sample sandwich. 
+    Rays see the SiO2 and graphite layers elongated by this factor.
+- `secκ` is the secant of the angle κ between a ray and the x-ray camera. 
+    Rays see the beryllium window and the camera detector wafer elongated by this factor.
 """
 function total_efficiency(energy::AbstractVector; secσ=1.0, secκ=1.0)
     QE = 1 .- transmission(si, energy, 450e-4 * secκ)
