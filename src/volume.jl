@@ -206,3 +206,150 @@ function path_integrated_density(v::Volume, p1::PointArray, p2::PointArray)
 end
 
 path_integrated_density(v::Volume, p1, p2) = path_integrated_density(v, PointArray(p1...), PointArray(p2...))[1]
+
+function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArray)
+    N = length(pa1)
+    integral = Array{Float64}(undef, N)
+
+    nx, ny, nz = v.voxelsPerEdge
+    mx, my, mz = minedges(v)
+    qx, qy, qz = maxedges(v)
+    dx, dy, dz = stepsize(v)
+
+    floorInt(x::Real) = floor(Int, x)
+    function x2voxel(p::AbstractArray)
+        i = 1+floorInt((p[1]-mx)/dx)
+        j = 1+floorInt((p[2]-my)/dy)
+        k = 1+floorInt((p[3]-mz)/dz)
+        i, j, k
+    end
+    voxel2index(i::Integer, j::Integer, k::Integer) = j + ny*((i-1) + (k-1)*nx)
+
+    for i = 1:N
+        p1 = pa1[i]
+        p2 = pa2[i]
+        Δp = p2 - p1
+        a = (mx-p1.x)/Δp.x
+        b = (qx-p1.x)/Δp.x
+        αxmin, αxmax = a < b ? (a, b) : (b, a)
+
+        a = (my-p1.y)/Δp.y
+        b = (qy-p1.y)/Δp.y
+        αymin, αymax = a < b ? (a, b) : (b, a)
+
+        a = (mz-p1.z)/Δp.z
+        b = (qz-p1.z)/Δp.z
+        αzmin, αzmax = a < b ? (a, b) : (b, a)
+
+        # Find α value where ray enters and leaves the region.
+        # No crossing the region is when αmin ≥ αmax
+        αmin = max(αxmin, αymin, αzmin)
+        αmax = min(αxmax, αymax, αzmax)
+        αmin ≥ αmax  && continue
+
+        enter = p1 + Δp*αmin
+        exit = p1 + Δp*αmax
+
+        # Find size of the steps in α that span exactly one x, y, or z voxel.
+        # These are negative if ray has a negative x-, y-, or z- direction vector--that's okay.
+        # These may be infinite if ray is along an axis--that's okay.
+        Δαx = dx / Δp.x
+        Δαy = dy / Δp.y
+        Δαz = dz / Δp.z
+
+        # Compute voxel numbers where ray enters and exits the region.
+        # If enter at (say) a y-plane, the je index is subject to roundoff error. Fix that next.
+        ie, je, ke = x2voxel(enter)
+        ix, jx, kx = x2voxel(exit)
+
+        # Handle details that depend upon the last plane entered / first plane exited.
+        if αmin == αxmin  # enter on a x-plane
+            ie = Δp.x > 0 ? 1 : nx
+            nextαx = αmin + Δαx
+            nextαy = αmin + Δαy * (je - (enter.y-my)/dy)
+            nextαz = αmin + Δαz * (ke - (enter.z-mz)/dz)
+            if Δαy < 0
+                nextαy -= Δαy
+            end
+            if Δαz < 0
+                nextαz -= Δαz
+            end
+        elseif αmin == αymin  # enter on a y-plane
+            je = Δp.y > 0 ? 1 : ny
+            nextαy = αmin + Δαy
+            nextαx = αmin + Δαx * (ie - (enter.x-mx)/dx)
+            nextαz = αmin + Δαz * (ke - (enter.z-mz)/dz)
+            if Δαx < 0
+                nextαx -= Δαx
+            end
+            if Δαz < 0
+                nextαz -= Δαz
+            end
+        else  # enter on a z-plane
+            ke = Δp.z > 0 ? 1 : nz
+            nextαz = αmin + Δαz
+            nextαx = αmin + Δαx * (ie - (enter.x-mx)/dx)
+            nextαy = αmin + Δαy * (je - (enter.y-my)/dy)
+            if Δαx < 0
+                nextαx -= Δαx
+            end
+            if Δαy < 0
+                nextαy -= Δαy
+            end
+        end
+
+        if αmax == αxmax  # exit from an x-plane
+            ix = Δp.x < 0 ? 1 : nx
+        elseif αmax == αymax  # exit from a y-plane
+            jx = Δp.y < 0 ? 1 : ny
+        else  # exit from a z-plane
+            kx = Δp.z < 0 ? 1 : nz
+        end
+
+        nvox = abs(ix-ie) + abs(jx-je) + abs(kx-ke) + 1
+        α = αmin
+        Δi = Δp.x > 0 ? ny : -ny
+        Δj = Δp.y > 0 ? 1 : -1
+        Δk = Δp.z > 0 ? ny*nx : -ny*nx
+
+        running_sum = 0.0
+        index = (ie-1)*ny + je + (ke-1)*ny*nx
+        Δαx = abs(Δαx)
+        Δαy = abs(Δαy)
+        Δαz = abs(Δαz)
+        for j = 1:nvox
+            if nextαx < nextαy && nextαx < nextαz
+                # An x step is shortest
+                index_step = Δi
+                nextα = nextαx
+                nextαx += Δαx
+            elseif nextαy < nextαz
+                # A y step is shortest
+                index_step = Δj
+                nextα = nextαy
+                nextαy += Δαy
+            else
+                # A z step is shortest
+                index_step = Δk
+                nextα = nextαz
+                nextαz += Δαz
+            end
+            # if index ≤ 0 || index > 3125000
+            #     @show p1
+            #     @show p2
+            #     @show v.edges
+            #     @show Δp
+            #     @show enter
+            #     @show ie, je, ke
+            #     @show exit
+            #     @show ix, jx, kx
+            #     @show j, nvox, index
+            # end
+            running_sum += (nextα - α) * v.densities[index]
+            α = nextα
+            index += index_step
+        end
+        integral[i] = running_sum * norm(Δp)
+    end
+    integral
+end
