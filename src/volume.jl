@@ -222,11 +222,12 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
         k = 1+floor(Int, (p[3]-mz)/dz)
         i, j, k
     end
-    voxel2index(i::Integer, j::Integer, k::Integer) = j + ny*((i-1) + (k-1)*nx)
+    voxel2index(i::Integer, j::Integer, k::Integer) = i + nx*((j-1) + (k-1)*ny)
 
     for i = 1:N
         p1 = pa1[i]
         p2 = pa2[i]
+        p2 == p1 && continue
         Δp = p2 - p1
 
         # Find where ray enters/exits the x, y, then z limits of the rectangular region.
@@ -243,7 +244,7 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
         αzmin, αzmax = min(a,b), max(a,b)
 
         # Find α value where ray enters and leaves the region.
-        # No crossing the region is when αmin ≥ αmax
+        # When αmin ≥ αmax, the ray does not actually cross the region.
         αmin = max(αxmin, αymin, αzmin)
         αmax = min(αxmax, αymax, αzmax)
         αmin ≥ αmax  && continue
@@ -253,17 +254,18 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
 
         # Find size of the steps in α that span exactly one x, y, or z voxel.
         # These are negative if ray has a negative x-, y-, or z- direction vector--that's okay.
-        # These may be infinite if ray is along an axis--that's okay.
+        # These may be infinite if ray is parallel to one or two axes--that's okay.
         Δαx = dx / Δp.x
         Δαy = dy / Δp.y
         Δαz = dz / Δp.z
 
         # Compute voxel numbers where ray enters and exits the region.
-        # If enter at (say) a y-plane, the je index is subject to roundoff error. Fix that next.
         ie, je, ke = x2voxel(enter)
         ix, jx, kx = x2voxel(exit)
 
         # Handle details that depend upon the last plane entered / first plane exited.
+        # The assumption is that if ray enters on an edge (thus, 2 planes at once), we can ignore that.
+        # If enter at (say) a y-plane, the je index is subject to roundoff error. Fix that.
         if αmin == αxmin  # enter on a x-plane
             ie = Δp.x > 0 ? 1 : nx
             nextαx = αmin + Δαx
@@ -307,19 +309,22 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
             kx = Δp.z < 0 ? 1 : nz
         end
 
-        nvox = abs(ix-ie) + abs(jx-je) + abs(kx-ke) + 1
-        α = αmin
-        Δi = Δp.x > 0 ? ny : -ny
-        Δj = Δp.y > 0 ? 1 : -1
-        Δk = Δp.z > 0 ? ny*nx : -ny*nx
-
-        running_sum = 0.0
-        index = voxel2index(ie, je, ke)
+        # Now make the Δα all positive, because we step always forward in α.
         Δαx = abs(Δαx)
         Δαy = abs(Δαy)
         Δαz = abs(Δαz)
-        for j = 1:nvox
-            if nextαx < nextαy && nextαx < nextαz
+
+        Δi = Δp.x > 0 ? 1 : -1
+        Δj = Δp.y > 0 ? nx : -nx
+        Δk = Δp.z > 0 ? ny*nx : -ny*nx
+
+        # The variables that will update in each voxel crossed
+        running_sum = 0.0
+        α = αmin
+        index = voxel2index(ie, je, ke)
+        nVoxelsCrossed = abs(ix-ie) + abs(jx-je) + abs(kx-ke) + 1
+        for j = 1:nVoxelsCrossed
+            if nextαx < min(nextαy, nextαz)
                 # An x step is shortest
                 index_step = Δi
                 nextα = nextαx
