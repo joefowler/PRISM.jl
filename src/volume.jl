@@ -90,15 +90,15 @@ function enter_exit_points(v::Volume, pa1::PointArray, pa2::PointArray)
 
         a = (mx-p.x)/Δp.x
         b = (qx-p.x)/Δp.x
-        αxmin, αxmax = a < b ? (a, b) : (b, a)
+        αxmin, αxmax = min(a,b), max(a,b)
 
         a = (my-p.y)/Δp.y
         b = (qy-p.y)/Δp.y
-        αymin, αymax = a < b ? (a, b) : (b, a)
+        αymin, αymax = min(a,b), max(a,b)
 
         a = (mz-p.z)/Δp.z
         b = (qz-p.z)/Δp.z
-        αzmin, αzmax = a < b ? (a, b) : (b, a)
+        αzmin, αzmax = min(a,b), max(a,b)
 
         αmin = max(αxmin, αymin, αzmin)
         αmax = min(αxmax, αymax, αzmax)
@@ -216,11 +216,10 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
     qx, qy, qz = maxedges(v)
     dx, dy, dz = stepsize(v)
 
-    floorInt(x::Real) = floor(Int, x)
     function x2voxel(p::AbstractArray)
-        i = 1+floorInt((p[1]-mx)/dx)
-        j = 1+floorInt((p[2]-my)/dy)
-        k = 1+floorInt((p[3]-mz)/dz)
+        i = 1+floor(Int, (p[1]-mx)/dx)
+        j = 1+floor(Int, (p[2]-my)/dy)
+        k = 1+floor(Int, (p[3]-mz)/dz)
         i, j, k
     end
     voxel2index(i::Integer, j::Integer, k::Integer) = j + ny*((i-1) + (k-1)*nx)
@@ -229,17 +228,19 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
         p1 = pa1[i]
         p2 = pa2[i]
         Δp = p2 - p1
+
+        # Find where ray enters/exits the x, y, then z limits of the rectangular region.
         a = (mx-p1.x)/Δp.x
         b = (qx-p1.x)/Δp.x
-        αxmin, αxmax = a < b ? (a, b) : (b, a)
+        αxmin, αxmax = min(a,b), max(a,b)
 
         a = (my-p1.y)/Δp.y
         b = (qy-p1.y)/Δp.y
-        αymin, αymax = a < b ? (a, b) : (b, a)
+        αymin, αymax = min(a,b), max(a,b)
 
         a = (mz-p1.z)/Δp.z
         b = (qz-p1.z)/Δp.z
-        αzmin, αzmax = a < b ? (a, b) : (b, a)
+        αzmin, αzmax = min(a,b), max(a,b)
 
         # Find α value where ray enters and leaves the region.
         # No crossing the region is when αmin ≥ αmax
@@ -313,7 +314,7 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
         Δk = Δp.z > 0 ? ny*nx : -ny*nx
 
         running_sum = 0.0
-        index = (ie-1)*ny + je + (ke-1)*ny*nx
+        index = voxel2index(ie, je, ke)
         Δαx = abs(Δαx)
         Δαy = abs(Δαy)
         Δαz = abs(Δαz)
