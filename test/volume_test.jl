@@ -73,7 +73,8 @@ end
                 expect = sqrt(2)*sum([v.densities[i+sx,i,1] for i=1:min(ny, nx-sx)])
             end
         end
-        @test d ≈ expect
+        @test isapprox(PRISM.path_integrated_density(v, s, e), expect; atol=1e-30, rtol=√eps(Float64))
+        @test isapprox(PRISM.path_integrated_density_fast(v, s, e), expect; atol=1e-30, rtol=√eps(Float64))
     end
 
     s = [0, 0.5, 2.5]
