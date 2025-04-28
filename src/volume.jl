@@ -351,7 +351,12 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
             #     @show ix, jx, kx
             #     @show j, nvox, index
             # end
-            running_sum += (nextα - α) * v.densities[index]
+
+            # To avoid illegal access outside array v.densities, skip any 0-length line segments
+            # (especially those at the end of the ray-volume overlap).
+            if nextα > α
+                running_sum += (nextα - α) * v.densities[index]
+            end
             α = nextα
             index += index_step
         end
@@ -359,3 +364,4 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
     end
     integral
 end
+path_integrated_density_fast(v::Volume, p1, p2) = path_integrated_density_fast(v, PointArray(p1...), PointArray(p2...))[1]
