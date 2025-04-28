@@ -31,6 +31,6 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     R, origin, P = benchmark_integrate(100000)
-    @btime d = PRISM.path_integrated_density(R, origin, P)
-    @btime d = PRISM.path_integrated_density_fast(R, origin, P)
+    @time d = PRISM.path_integrated_density(R, origin, P)
+    @time d = PRISM.path_integrated_density_fast(R, origin, P)
 end

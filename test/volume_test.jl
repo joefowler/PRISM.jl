@@ -130,6 +130,17 @@ end
         @test all(d .≈ expect)
         @test all(df .≈ expect)
     end
+
+    # Test random rays for equality between 2 algorithms
+    Nforward, Nbackward = 30, 30
+    N = Nforward + Nbackward
+    zstart = vcat(fill(-1.0, Nforward), fill(nz+1.0, Nbackward))
+    zexit = vcat(fill(nz+1.0, Nforward), fill(-1.0, Nbackward))
+    s = PointArray(nx*rand(N), ny*rand(N), zstart)
+    e = PointArray(nx*rand(N), ny*rand(N), zexit)
+    d = PRISM.path_integrated_density(v, s, e)
+    df = PRISM.path_integrated_density_fast(v, s, e)
+    @test all(d .≈ df)
 end
 
 @testset "merge_sorted" begin
