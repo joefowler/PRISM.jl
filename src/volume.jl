@@ -340,17 +340,6 @@ function path_integrated_density_fast(v::Volume, pa1::PointArray, pa2::PointArra
                 nextα = nextαz
                 nextαz += Δαz
             end
-            # if index ≤ 0 || index > 3125000
-            #     @show p1
-            #     @show p2
-            #     @show v.edges
-            #     @show Δp
-            #     @show enter
-            #     @show ie, je, ke
-            #     @show exit
-            #     @show ix, jx, kx
-            #     @show j, nvox, index
-            # end
 
             # To avoid illegal access outside array v.densities, skip any 0-length line segments
             # (especially those at the end of the ray-volume overlap).
