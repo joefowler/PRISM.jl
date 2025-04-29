@@ -22,8 +22,13 @@ function load_images(h::HDF5.H5DataStore, rescale::Integer=1)
     c1 = detector["threshold_1_channel"]
     mask = c1["pixel_mask"][:,:]
     mask[1407, 1565] = 0xff
+    mask[421, 1539] = 0xff
     # threshold_energy = read(c1["threshold_energy"])
     frame_time = read(detector["frame_time"])
+    eds = pp["eds/fitted_peak_heights"][:]
+    eds *= 1/mean(eds)
+
+    # Check that pixel sizes are given in meters, then convert to µm.
     Δx = read(detector["x_pixel_size"])
     Δy = read(detector["y_pixel_size"])
     @assert attrs(detector["x_pixel_size"])["units"] == "m"
@@ -40,23 +45,24 @@ function load_images(h::HDF5.H5DataStore, rescale::Integer=1)
     goodPix = downsample_2d(rawpix_is_good, rescale; outputtype=UInt8)
 
     X = vec(x)*ones(length(y))'
-    Y = ones(length(x))*vec(y)'
+    Y = ones(length(x))*vec(-y)'
     xctr = downsample_2d(X.*rawpix_is_good, rescale) ./ goodPix
     yctr = downsample_2d(Y.*rawpix_is_good, rescale) ./ goodPix
-    pixCtrs = PointArray(vec(X), vec(Y), 257500.0)
+    pixCtrs = PointArray(vec(xctr), vec(yctr), 257500.0)
     camera = Camera(pixCtrs)
     images = Image[]
     for i = 1:ntrigger
         imgdata = dropdims(sum(data[:,:,1,1+nimages*(i-1):nimages*i]; dims=3); dims=3)
         imgdata[mask .> 0] .= 0
         rawimg = downsample_2d(imgdata, rescale; outputtype=UInt32)
-        Img = Image(rawimg, goodPix, 1.0, frame_time*nimages, nimages, camera)
+        Img = Image(rawimg, goodPix, eds[i], frame_time*nimages, nimages, camera)
         return Img
         push!(images, Img)
     end
 
-    camera, images
+    camera, images, positions
 end
+
 function load_images(hdf5file::AbstractString, rescale::Integer=1) 
     h5open(hdf5file, "r") do h
         return load_images(h, rescale)
