@@ -28,5 +28,6 @@ PointArray(x::Real, y::Real, z::AbstractVector) = PointArray(fill(x, length(z)),
 PointArray(x::AbstractVector, y::Real, z::Real) = PointArray(x, fill(y, length(x)),fill(z, length(x)))
 PointArray(x::Real, y::AbstractVector, z::Real) = PointArray(fill(x, length(y)), y, fill(z, length(y)))
 PointArray(x::Real, y::Real, z::Real) = PointArray([x], [y], [z])
+PointArray(x::Matrix, y::Matrix, z::Matrix) = PointArray(vec(x), vec(y), vec(z))
 
 LinearAlgebra.norm(p::PointArray, q::Real=2) = [norm(x, q) for x in p]
