@@ -34,13 +34,15 @@ function load_images(h::HDF5.H5DataStore, rescale::Integer=1)
     nx, ny, ntriglevels, nframes = size(data)
     @assert ntriglevels == 1
     @assert nframes == nimages*ntrigger
-    x = Δx * (-div(nx, 2):nx-div(nx,2))
-    y = Δy * (-div(ny, 2):ny-div(ny,2))
-    goodPix = downsample_2d(mask .== 0, rescale; outputtype=UInt8)
+    x = Δx * (-0.5*(nx-1):0.5*(nx-1))
+    y = Δy * (-0.5*(ny-1):0.5*(ny-1))
+    rawpix_is_good = mask .== 0
+    goodPix = downsample_2d(rawpix_is_good, rescale; outputtype=UInt8)
 
-    X = ones(length(y))*vec(x)'
-    Y = vec(y)*ones(length(x))'
-    xctr = downsample_2d(X.*goodPix)
+    X = vec(x)*ones(length(y))'
+    Y = ones(length(x))*vec(y)'
+    xctr = downsample_2d(X.*rawpix_is_good, rescale) ./ goodPix
+    yctr = downsample_2d(Y.*rawpix_is_good, rescale) ./ goodPix
     pixCtrs = PointArray(vec(X), vec(Y), 257500.0)
     camera = Camera(pixCtrs)
     images = Image[]
