@@ -1,4 +1,6 @@
 using HDF5
+using Statistics
+
 
 struct Image
     counts::Matrix{UInt32}
@@ -25,8 +27,8 @@ function load_images(h::HDF5.H5DataStore, rescale::Integer=1)
     mask[421, 1539] = 0xff
     # threshold_energy = read(c1["threshold_energy"])
     frame_time = read(detector["frame_time"])
-    eds = pp["eds/fitted_peak_heights"][:]
-    eds *= 1/mean(eds)
+    raw_eds = reshape(pp["eds/fitted_peak_heights"][:], nimages, ntrigger)
+    eds = dropdims(mean(raw_eds, dims=1), dims=1)/mean(raw_eds)
 
     # Check that pixel sizes are given in meters, then convert to µm.
     Δx = read(detector["x_pixel_size"])
@@ -56,7 +58,6 @@ function load_images(h::HDF5.H5DataStore, rescale::Integer=1)
         imgdata[mask .> 0] .= 0
         rawimg = downsample_2d(imgdata, rescale; outputtype=UInt32)
         Img = Image(rawimg, goodPix, eds[i], frame_time*nimages, nimages, camera)
-        return Img
         push!(images, Img)
     end
 
