@@ -96,3 +96,41 @@ function downsample_2d(a::AbstractMatrix, rescale=1; outputtype=nothing)
     out
 end
 
+function build_radiograph(camera::Camera, images::AbstractVector{Image}, positions::AbstractMatrix)
+    @assert length(images) == size(positions)[2]
+    nominal_z = 10.0
+    pixCtrs = camera.pixelCenters*(nominal_z/camera.pixelCenters[1].z)
+    
+    xedges = 85:.05:120
+    yedges = -21:.05:-5
+    nx = length(xedges)
+    ny = length(yedges)
+    mx = minimum(xedges)
+    my = minimum(yedges)
+    dx = step(xedges)
+    dy = step(yedges)
+    obliquity = camera.secκ.^-3
+
+
+    bigw = zeros(Float64, ny, nx)
+    bigc = zeros(Float64, ny, nx)
+    for (i,img) in enumerate(images)
+        offset = positions[:,i]
+        counts = vec(img.counts)
+        npix = vec(img.validPix)
+        @assert length(pixCtrs) == length(counts)
+        @assert length(pixCtrs) == length(npix)
+        for (c,w,pc,obliq) in zip(counts, npix, pixCtrs, obliquity)
+            w ≤ 0 && continue
+            w *= img.intensityScale * img.integrationTime * obliq
+            x, y, _ = pc + offset
+            ix = floor(Int, (x-mx)/dx)
+            iy = floor(Int, (y-my)/dy)
+            (ix < 1 || ix > nx) && continue
+            (iy < 1 || iy > ny) && continue
+            bigw[iy, ix] += w
+            bigc[iy, ix] += c
+        end
+    end
+    bigc ./ bigw
+end
