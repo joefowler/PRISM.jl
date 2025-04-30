@@ -1,0 +1,32 @@
+# Here is an example configuration file for rescale_raw_data.jl
+
+rescale: 8
+dryrun: false
+
+output: /tmp/combined_data.h5
+# clobber: true
+
+# The input files are found in `input_root/`.
+# The value of `input` is an array of pairs `(filename, angle)`
+# where `filename` can be a glob pattern, and `angle` is the sample
+# rotation angle in degrees.
+# 
+# rescale_raw_data.jl will substitute raw"$HOME"=>homedir() in all paths, so you need
+# not specify your home drive in this script.
+input_root: $HOME/Google Drive/My Drive/Tomography/20250204
+input:
+- [theta_0/*/*_theta_0_master.h5, 0.0]
+- [theta_p7p5/*/*_theta_p7p5_master.h5, 7.5]
+- [theta_p15/*/*_theta_p15_master.h5, 15]
+- [theta_p22p5/*/*_theta_p22p5_master.h5, 22.5]
+- [theta_p30/*/*_theta_p30_master.h5, 30]
+- [theta_p37p5/*/*_theta_p37p5_master.h5, 37.5]
+- [theta_p45/*/*_theta_p45_master.h5, 45]
+- [theta_m7p5/*/*_theta_m7p5_master.h5, -7.5]
+- [theta_m15/*/*_theta_0_master.h5, -15]
+- [theta_m22p5/*/*_theta_m22p5_master.h5, -22.5]
+- [theta_m30/*/*_theta_m30_master.h5, -30]
+- [theta_m37p5/*/*_theta_m37p5_master.h5, -37.5]
+
+# Optional: use maxtriggers: 4 to limit output to 4 dwell positions per input file.
+# maxtriggers: 4
