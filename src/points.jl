@@ -6,6 +6,7 @@ struct Vec3D{T} <: FieldVector{3, T}
     y::T
     z::T
 end
+Vec3D(t::NamedTuple) = Vec3D(t.x, t.y, t.z)
 
 StaticArrays.similar_type(::Type{<:Vec3D}, ::Type{T}, s::Size{(3,)}) where {T} = Vec3D
 
