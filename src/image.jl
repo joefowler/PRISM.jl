@@ -70,7 +70,7 @@ function downsample_2d(a::AbstractMatrix, rescale=1; outputtype=nothing)
     out
 end
 
-function build_radiograph(camera::Camera, images::AbstractVector{Image}, positions::AbstractMatrix)
+function build_radiograph(camera::Camera, images::AbstractVector{Image}, positions::AbstractMatrix; pixelReject=(x->false))
     @assert length(images) == size(positions)[2]
     nominal_z = 10.0
     pixCtrs = camera.pixelCenters*(nominal_z/camera.pixelCenters[1].z)
@@ -96,6 +96,7 @@ function build_radiograph(camera::Camera, images::AbstractVector{Image}, positio
         @assert length(pixCtrs) == length(npix)
         for (c,w,pc,obliq) in zip(counts, npix, pixCtrs, obliquity)
             w ≤ 0 && continue
+            pixelReject(pc) && continue
             w *= img.intensityScale * img.integrationTime * obliq
             x, y, _ = pc + offset
             ix = floor(Int, (x-mx)/dx)
@@ -107,4 +108,58 @@ function build_radiograph(camera::Camera, images::AbstractVector{Image}, positio
         end
     end
     bigc ./ bigw
+end
+
+function build_all_radiographs(camera::Camera, images::AbstractVector{Image}, positions::AbstractMatrix, angles::AbstractVector)
+    results = Dict{Float64,Matrix{Float64}}()
+    uniqueA = sort(unique(angles))
+    for θ in uniqueA
+        use = angles .== θ
+        offset = [10tan(θ*π/180), 0, 0]
+        rg = build_radiograph(camera, images[use], positions[:,use].-offset)
+        results[θ] = rg
+    end
+    results
+end
+
+function offsets_feb_2025()
+    # The number of inner, middle, outer dwells for θ=[0, 7.5, 15, ...45, -7.5, -15, ... -37.5]
+    nframes = reshape([
+        72, 27, 24, 76, 30, 30, 76, 30, 30, 72, 30, 30, 76, 30, 27, 80, 30, 27, 84, 36, 27,
+        76, 30, 30, 76, 30, 27, 72, 30, 30, 76, 30, 27, 80, 30, 27], 3, 12)
+    angleorder = vcat(0:7.5:45, -7.5:-7.5:-37.5)
+    corrections = [
+        0       0         0         0         0           0         0
+        -37.5   2.368    -0.31875   1.785    -0.7        1.30633   -0.929333
+        -30.0   3.66425  -0.82875   3.37733  -1.28667    2.621     -1.96367
+        -22.5   3.9235   -0.7225    3.794    -1.10533    3.117     -1.482
+        -15.0   3.388    -0.9945    3.27533  -1.45667    2.62967   -2.19333
+         -7.5   2.3595   -0.646     2.23833  -1.074      1.621     -1.51333
+          7.5  -0.561    -0.15725  -0.561    -0.209667  -0.586667  -0.547
+         15.0  -1.76375  -0.238    -1.785    -0.178333  -1.87033   -0.445
+         22.5  -2.5755   -0.051    -2.62933  -0.014     -2.92433   -0.187
+         30.0  -4.59425   0.13175  -4.68367   0.269333  -4.04367    0.824667
+         37.5  -6.04775  -0.25925  -5.817     0.261     -5.024      1.026
+         45.0  -8.386     0.306    -8.18667   0.802333  -6.55967    2.1
+       
+    ]
+    xinner = Dict(corrections[:, 1] .=> corrections[:, 2])
+    yinner = Dict(corrections[:, 1] .=> corrections[:, 3])
+    xmiddle = Dict(corrections[:, 1] .=> corrections[:, 4])
+    ymiddle = Dict(corrections[:, 1] .=> corrections[:, 5])
+    xouter = Dict(corrections[:, 1] .=> corrections[:, 6])
+    youter = Dict(corrections[:, 1] .=> corrections[:, 7])
+    xoffsets = Float64[]
+    yoffsets = Float64[]
+    for (i, angle) in enumerate(angleorder)
+        append!(xoffsets, fill(xinner[angle], nframes[1,i]))
+        append!(yoffsets, fill(yinner[angle], nframes[1,i]))
+        append!(xoffsets, fill(xmiddle[angle], nframes[2,i]))
+        append!(yoffsets, fill(ymiddle[angle], nframes[2,i]))
+        append!(xoffsets, fill(xouter[angle], nframes[3,i]))
+        append!(yoffsets, fill(youter[angle], nframes[3,i]))
+    end
+    # Email May 2 says to reverse the sign of all y-offsets.
+    sign_may2 = -1
+    vcat(xoffsets', sign_may2*yoffsets', zeros(Float64, sum(nframes))')
 end
