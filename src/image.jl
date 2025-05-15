@@ -1,5 +1,7 @@
 using HDF5
 using Statistics
+using Printf
+using Optim
 
 
 struct Image
@@ -162,4 +164,48 @@ function offsets_feb_2025()
     # Email May 2 says to reverse the sign of all y-offsets.
     sign_may2 = -1
     vcat(xoffsets', sign_may2*yoffsets', zeros(Float64, sum(nframes))')
+end
+
+function best_shift(fixed::AbstractMatrix, sliding::AbstractMatrix)
+    Lf = log.(fixed)
+    Ls = log.(sliding)
+
+    function cost(shift::Vector{T}) where T<:Integer
+        idx, idy = shift
+        subLs = Ls[max(1+idy,1):end, max(1+idx,1):end]
+        subLf = Lf[max(1-idy,1):end, max(1-idx,1):end]
+        ny = min(size(subLs)[1], size(subLf)[1])
+        nx = min(size(subLs)[2], size(subLf)[2])
+        subLf = subLf[1:ny,1:nx]
+        subLs = subLs[1:ny, 1:nx]
+        use = isfinite.(subLf) .&& isfinite.(subLs)
+        mean((subLf .- subLs .- (mean(subLf[use]) .- mean(subLs[use])))[use].^2)
+    end
+
+    function cost(shift::Vector{Float64})
+        dx, dy = shift
+        idx = floor(Int, dx)
+        idy = floor(Int, dy)
+        fdx = dx - idx
+        fdy = dy - idy
+
+        c1 = cost([idx,idy])*(1-fdx)*(1-fdy)
+        c2 = cost([idx,idy+1])*(1-fdx)*fdy
+        c3 = cost([idx+1,idy])*fdx*(1-fdy)
+        c4 = cost([idx+1,idy+1])*fdx*fdy
+        c1+c2+c3+c4
+    end
+
+    # clf()
+    # xa = -28:3:28
+    # ya = -28:3:28
+    # c = zeros(Float64, length(ya), length(xa))
+    # for (i,x) in enumerate(xa)
+    #     for (j, y) in enumerate(ya)
+    #         c[j,i] = cost(1.0*[x,y])
+    #     end
+    # end
+    # imshow(c)
+
+   optimize(cost, [0.0, 0.0], NelderMead()) 
 end
